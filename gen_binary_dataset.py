@@ -1,6 +1,14 @@
 import pandas as pd
 import numpy as np
 import random
+from argparse import ArgumentParser
+
+parser = ArgumentParser()
+parser.add_argument('--num_cols', type=int, help='How many features')
+parser.add_argument('--num_trans', type=int, help='How many transactions')
+parser.add_argument('--pattern_length', type=int, help='How long is the pattern')
+parser.add_argument('--noise_ratio', type=float, help="Noise/signal ratio")
+parser.add_argument('--output_folder', type=str, help="Where to store the generated dataset and pattern")
 
 
 def generate_random_pattern(num_cols, pattern_length):
@@ -68,13 +76,19 @@ def analyse_dataset(df):
 
 
 if __name__ == '__main__':
-    num_trans = 1e5
-    num_cols = 20
-    pattern_length = 4
-    noise_ratio = 0.05
-    file_name = f'data/binary_{num_trans}trans_{num_cols}cols_{pattern_length}pl_{noise_ratio}noise.csv'
+    args = parser.parse_args()
+    num_trans = args.num_trans
+    num_cols = args.num_cols
+    pattern_length = args.pattern_length
+    noise_ratio = args.noise_ratio
+    output_folder = args.output_folder
+
+    file_name = f'{output_folder}/binary_{num_trans}trans_{num_cols}cols_{pattern_length}pl_{noise_ratio}noise.csv'
     df, pattern = generate_binary_dataset(num_trans=num_trans, num_cols=num_cols, pattern_length=pattern_length)
     df.to_csv(file_name, index=False)
+    print(f'Binary dataset stored at {file_name}')
     pattern = [str(x) for x in pattern]
-    with open(file_name.replace('.csv', '.txt'), 'w') as f:
+    pattern_path = file_name.replace('.csv', '.txt')
+    with open(pattern_path, 'w') as f:
         f.write(' '.join(pattern))
+    print(f'Pattern stored at {pattern_path}')

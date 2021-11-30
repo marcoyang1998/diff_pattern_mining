@@ -3,3 +3,4 @@ label
 .idea
 __pycache__
 *.csv
+*.sh
