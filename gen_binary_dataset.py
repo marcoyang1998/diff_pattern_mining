@@ -72,9 +72,9 @@ if __name__ == '__main__':
     num_cols = 20
     pattern_length = 4
     noise_ratio = 0.05
-    file_name = f'data/binary_{num_trans}trans_{num_cols}cols_{pattern_length}pl_{0.05}noise.csv'
+    file_name = f'data/binary_{num_trans}trans_{num_cols}cols_{pattern_length}pl_{noise_ratio}noise.csv'
     df, pattern = generate_binary_dataset(num_trans=num_trans, num_cols=num_cols, pattern_length=pattern_length)
-    df.to_csv(file_name)
+    df.to_csv(file_name, index=False)
     pattern = [str(x) for x in pattern]
     with open(file_name.replace('.csv', '.txt'), 'w') as f:
         f.write(' '.join(pattern))

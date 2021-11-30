@@ -3,9 +3,9 @@ import torch.nn as nn
 from torch import optim
 
 
-class MultiValue_PatternClassifier(nn.Module):
+class MultiValuePatternClassifier(nn.Module):
     def __init__(self, feat_size_list, args):
-        super(MultiValue_PatternClassifier, self).__init__()
+        super(MultiValuePatternClassifier, self).__init__()
         self.feature_value_list = feat_size_list
         self.num_feature = len(feat_size_list)
         self.feature_start_pos_list = []
@@ -35,7 +35,6 @@ class MultiValue_PatternClassifier(nn.Module):
         self.embedding.apply(_init_weight)
         self.output_layer.apply(_init_weight)
 
-
     def forward(self, x):
         feat_list = []
         for i in range(self.num_feature):
@@ -49,9 +48,9 @@ class MultiValue_PatternClassifier(nn.Module):
         return x
 
 
-class Binary_PatternClassifier(nn.Module):
+class BinaryPatternClassifier(nn.Module):
     def __init__(self, num_feat, args):
-        super(Binary_PatternClassifier, self).__init__()
+        super(BinaryPatternClassifier, self).__init__()
         self.num_feature = num_feat
         self.dim_hidden = args.dim_hidden
         self.linear_encoder = nn.Linear(num_feat, self.dim_hidden)
@@ -64,6 +63,9 @@ class Binary_PatternClassifier(nn.Module):
         x = self.classifier(x)
 
         return x
+
+    def get_pattern(self):
+        return self.linear_encoder.weight
 
     def init_weight(self):
         def _init_weight(m):
@@ -88,7 +90,7 @@ class PatterMiningTrainer(nn.Module):
 
     def forward(self, x):
         x.to(self.device)
-        out = self.model.forward(x)
+        out = self.model.forward(x).squeeze(dim=-1)
         return out
 
     def update(self, x, label):
@@ -100,3 +102,15 @@ class PatterMiningTrainer(nn.Module):
         self.optim.step()
 
         return loss.cpu()
+
+    def get_pattern(self):
+        return self.model.get_pattern()
+
+
+def get_model(args, **kwargs):
+    if args.dataset_type == 'binary':
+        num_feat = kwargs.get('num_feat')
+        return BinaryPatternClassifier(args=args, num_feat=num_feat)
+    else:
+        feat_size_list = kwargs.get('feat_size_list')
+        return MultiValuePatternClassifier(args=args, feat_size_list=feat_size_list)

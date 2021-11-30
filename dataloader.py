@@ -43,6 +43,9 @@ class MultiValueTabularDataset(Dataset):
         size_list = [self.feature_size_dict[feat] for feat in self.attribute_cols]
         return size_list
 
+    def get_model_info(self):
+        return {'feat_size_list': self.get_feature_size_list()}
+
     def clarify_data(self):
         #for feat in self.attribute_cols:
         #    for val in self.feature_value_dict[feat]:
@@ -57,9 +60,13 @@ class BinaryTabularDataset(Dataset):
         self.data = pd.read_csv(data_path)
         cols = list(self.data.columns)
         assert 'label' == cols[-1]
-        self.num_feature = len(cols) - 1
+        self.num_feat = len(cols) - 1
+        self.attribute_cols = cols[:-1]
         self.attribute_data = self.data[self.attribute_cols]
         self.label = self.data['label']
+
+    def get_model_info(self):
+        return {'num_feat': self.num_feat}
 
     def __len__(self):
         return len(self.attribute_data)
@@ -71,6 +78,7 @@ class BinaryTabularDataset(Dataset):
 
 
 if __name__ == '__main__':
-    data_path = 'data/col10_row10000_RCLen4_0.csv'
-    myDataset = MultiValueTabularDataset(data_path=data_path)
+    data_path = 'data/binary_100000.0trans_20cols_4pl_0.05noise.csv'
+    myDataset = BinaryTabularDataset(data_path=data_path)
     transaction, label = myDataset[1]
+    print('Done')
