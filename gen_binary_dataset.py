@@ -84,7 +84,7 @@ if __name__ == '__main__':
     output_folder = args.output_folder
 
     file_name = f'{output_folder}/binary_{num_trans}trans_{num_cols}cols_{pattern_length}pl_{noise_ratio}noise.csv'
-    df, pattern = generate_binary_dataset(num_trans=num_trans, num_cols=num_cols, pattern_length=pattern_length)
+    df, pattern = generate_binary_dataset(num_trans=num_trans, num_cols=num_cols, pattern_length=pattern_length, noise_ratio=noise_ratio)
     df.to_csv(file_name, index=False)
     print(f'Binary dataset stored at {file_name}')
     pattern = [str(x) for x in pattern]
