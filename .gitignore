@@ -4,3 +4,6 @@ label
 __pycache__
 *.csv
 *.sh
+output
+log
+*.npy

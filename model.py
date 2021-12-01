@@ -101,7 +101,7 @@ class PatterMiningTrainer(nn.Module):
         loss.backward()
         self.optim.step()
 
-        return loss.cpu()
+        return loss
 
     def get_pattern(self):
         return self.model.get_pattern()
