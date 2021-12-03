@@ -77,8 +77,61 @@ class BinaryTabularDataset(Dataset):
         return transaction, label
 
 
+class BinaryTabularTripletDataset(Dataset):
+    def __init__(self, data_path):
+        self.data = pd.read_csv(data_path)
+        cols = list(self.data.columns)
+        assert 'label' == cols[-1]
+        self.num_feat = len(cols) - 1
+        self.attribute_cols = cols[:-1]
+        self.attribute_data = self.data[self.attribute_cols]
+        self.label = self.data['label']
+
+        self.pattern_idx = self.data.index[self.data['label'] == True].tolist()
+        self.non_pattern_idx = self.data.index[self.data['label'] == False].tolist()
+
+    def get_model_info(self):
+        return {'num_feat': self.num_feat}
+
+    def __len__(self):
+        return len(self.attribute_data)
+
+    def __getitem__(self, idx):
+        anchor = torch.from_numpy(np.array(self.attribute_data.iloc[idx])).float()
+        label = torch.from_numpy(np.array(self.label.iloc[idx])).long()
+
+        if label == 1:
+            truthy_idx = np.random.choice(self.pattern_idx, 1)
+            while truthy_idx == idx:
+                truthy_idx = np.random.choice(self.pattern_idx, 1)
+            falsy_idx = np.random.choice(self.non_pattern_idx, 1)
+        else:
+            truthy_idx = np.random.choice(self.non_pattern_idx, 1)
+            while truthy_idx == idx:
+                truthy_idx = np.random.choice(self.non_pattern_idx, 1)
+            falsy_idx = np.random.choice(self.pattern_idx, 1)
+
+        truthy = torch.from_numpy(np.array(self.attribute_data.iloc[truthy_idx])).float().view(-1)
+        falsy = torch.from_numpy(np.array(self.attribute_data.iloc[falsy_idx])).float().view(-1)
+
+        return anchor, truthy, falsy
+
+
+def get_dataloader(args):
+    dataset_type = args.dataset_type
+    loss_type = args.loss_type
+
+    if dataset_type == 'binary':
+        if loss_type == 'classification':
+            return BinaryTabularDataset(data_path=args.train_data)
+        elif loss_type == 'contrastive':
+            return BinaryTabularTripletDataset(data_path=args.train_data)
+    elif dataset_type == 'multivalue':
+        raise NotImplementedError()
+
+
 if __name__ == '__main__':
     data_path = 'data/binary_100000.0trans_20cols_4pl_0.05noise.csv'
-    myDataset = BinaryTabularDataset(data_path=data_path)
+    myDataset = BinaryTabularTripletDataset(data_path=data_path)
     transaction, label = myDataset[1]
     print('Done')

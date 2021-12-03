@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch import optim
+from losses import triplet_loss
 
 
 class MultiValuePatternClassifier(nn.Module):
@@ -57,6 +58,7 @@ class BinaryPatternClassifier(nn.Module):
         self.encoder_activation = nn.ReLU()
 
         self.classifier = nn.Linear(self.dim_hidden, 1)
+        self.init_weight()
 
     def forward(self, x):
         x = self.encoder_activation(self.linear_encoder(x))
@@ -65,7 +67,7 @@ class BinaryPatternClassifier(nn.Module):
         return x
 
     def get_pattern(self):
-        return self.linear_encoder.weight
+        return self.linear_encoder.weight, self.classifier.weight
 
     def init_weight(self):
         def _init_weight(m):
@@ -76,9 +78,33 @@ class BinaryPatternClassifier(nn.Module):
         self.classifier.apply(_init_weight)
 
 
-class PatterMiningTrainer(nn.Module):
+class BinaryPatternEmbedding(nn.Module):
+    def __init__(self, num_feat, args):
+        super(BinaryPatternEmbedding, self).__init__()
+        self.num_feature = num_feat
+        self.dim_hidden = args.dim_hidden
+        self.linear_encoder = nn.Linear(num_feat, self.dim_hidden)
+        self.encoder_activation = nn.ReLU()
+
+        self.init_weight()
+
+    def forward(self, x):
+        x = self.encoder_activation(self.linear_encoder(x))
+
+        return x
+
+    def init_weight(self):
+        def _init_weight(m):
+            if isinstance(m, nn.Linear):
+                torch.nn.init.xavier_uniform_(m.weight)
+                m.bias.data.fill_(0.01)
+
+        self.linear_encoder.apply(_init_weight)
+
+
+class PatterMiningClassifier(nn.Module):
     def __init__(self, model: nn.Module, args, device='cpu'):
-        super(PatterMiningTrainer, self).__init__()
+        super(PatterMiningClassifier, self).__init__()
         self.model = model
         self.epoch = 0
         self.optim = optim.SGD(model.parameters(), lr=args.lr)
@@ -90,7 +116,7 @@ class PatterMiningTrainer(nn.Module):
 
     def forward(self, x):
         x.to(self.device)
-        out = self.model.forward(x).squeeze(dim=-1)
+        out = self.model(x).squeeze(dim=-1)
         return out
 
     def update(self, x, label):
@@ -107,10 +133,45 @@ class PatterMiningTrainer(nn.Module):
         return self.model.get_pattern()
 
 
+class PatternMininingContrastiveTrainer(nn.Module):
+    def __init__(self, model:nn.Module, args, device='cpu'):
+        super(PatternMininingContrastiveTrainer, self).__init__()
+        self.model = model
+        self.optim = optim.SGD(model.parameters(), lr=args.lr)
+        self.loss = triplet_loss
+
+        self.device = device
+        self.model.to(device)
+
+    def forward(self, anchor, truthy, falsy):
+        #anchor = anchor.to(self.device)
+        #truthy = truthy.to(self.device)
+        #falsy = falsy.to(self.device)
+
+        anchor = self.model(anchor.to(self.device))
+        truthy = self.model(truthy.to(self.device))
+        falsy = self.model(falsy.to(self.device))
+
+        return anchor, truthy, falsy
+
+    def update(self, anchor, truthy, falsy):
+        loss = self.loss(*self.forward(anchor, truthy, falsy))
+        self.optim.zero_grad()
+        loss.backward()
+        self.optim.step()
+
+        return loss
+
+
+
+
 def get_model(args, **kwargs):
     if args.dataset_type == 'binary':
         num_feat = kwargs.get('num_feat')
-        return BinaryPatternClassifier(args=args, num_feat=num_feat)
+        if args.loss_type == 'classification':
+            return BinaryPatternClassifier(args=args, num_feat=num_feat)
+        elif args.loss_type == 'contrastive':
+            return BinaryPatternEmbedding(args=args, num_feat=num_feat)
     else:
         feat_size_list = kwargs.get('feat_size_list')
         return MultiValuePatternClassifier(args=args, feat_size_list=feat_size_list)
