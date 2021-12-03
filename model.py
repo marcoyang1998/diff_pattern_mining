@@ -101,6 +101,9 @@ class BinaryPatternEmbedding(nn.Module):
 
         self.linear_encoder.apply(_init_weight)
 
+    def get_pattern(self):
+        return self.linear_encoder.weight
+
 
 class PatterMiningClassifier(nn.Module):
     def __init__(self, model: nn.Module, args, device='cpu'):
@@ -162,7 +165,8 @@ class PatternMininingContrastiveTrainer(nn.Module):
 
         return loss
 
-
+    def get_pattern(self):
+        return self.model.get_pattern()
 
 
 def get_model(args, **kwargs):
