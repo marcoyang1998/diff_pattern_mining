@@ -8,6 +8,6 @@ def triplet_loss(anchor, truthy, falsy, alpha=0.2):
     truthy = F.normalize(truthy)
     falsy = F.normalize(falsy)
 
-    loss = torch.maximum((anchor - truthy).norm(dim=1, p=2)**2 - (anchor - falsy).norm(dim=1, p=2)**2 + alpha, torch.zeros(1))
+    loss = torch.maximum((anchor - truthy).norm(dim=1, p=2)**2 - (anchor - falsy).norm(dim=1, p=2)**2 + alpha, torch.zeros(1).to(anchor.device))
 
     return loss.mean()
