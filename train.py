@@ -1,6 +1,7 @@
 import logging
 import os
 from argparse import ArgumentParser
+import json
 
 import torch
 import numpy as np
@@ -26,22 +27,24 @@ parser.add_argument('--debug_dir', type=str, default='log')
 def train(trainer, dataset, writer, args):
     epoch = args.epoch
     pattern_list = []
+    output_json = {}
     logging.info('Start training')
     for ep in range(epoch):
         loss_list = []
         print(f'Epoch: {ep}')
         for step, data in enumerate(dataset):
-            #transaction = transaction.to(trainer.device)
-            #label = label.to(trainer.device)
             loss = trainer.update(*data)
-            #if step % 20 == 0:
-            #    print(f'Step {step}')
             if step % 500 == 0:
                 print(f'Epoch: {ep}, step: {step}, loss: {loss}')
+                current_pattern = trainer.get_pattern().cpu().detach().numpy().reshape(-1)
+                output_json[f'Epoch: {ep}, step: {step}'] = np.array2string(current_pattern)
+                with open(args.output_dir + '/pattern.json', 'w') as f:
+                    json.dump(output_json, f)
         loss_list.append(loss.cpu().detach().numpy())
         print(f'Epoch {ep}: loss = {np.array(loss_list).mean()}')
         writer.add_scalar('loss', loss, ep)
-        current_pattern = trainer.get_pattern()
+        current_pattern = trainer.get_pattern().cpu().detach().numpy().reshape(-1)
+        #output_json[f'Epoch: {ep}, step: {step}'] = np.array2string(current_pattern)
         print(f'Current pattern: {current_pattern}')
         #pattern_list.append(current_pattern.cpu().detach().numpy())
     #pattern_list = np.array(pattern_list)

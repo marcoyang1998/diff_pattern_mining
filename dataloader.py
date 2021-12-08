@@ -5,8 +5,9 @@ from torch.utils.data import Dataset
 import torch.nn.functional as F
 
 
-class MultiValueTabularDataset(Dataset):
+class BaseTabularDataset(Dataset):
     def __init__(self, data_path):
+        super().__init__()
         self.data = pd.read_csv(data_path)
         cols = list(self.data.columns)
         assert 'label' == cols[-1], "Col: label is not found in the dataset"
@@ -15,6 +16,16 @@ class MultiValueTabularDataset(Dataset):
         self.attribute_data = self.data[self.attribute_cols]
         self.label = self.data['label']
 
+    def __len__(self):
+        return len(self.attribute_data)
+
+    def get_model_info(self):
+        raise NotImplementedError("Model info method is not implemented!")
+
+
+class MultiValueTabularDataset(BaseTabularDataset):
+    def __init__(self, data_path):
+        BaseTabularDataset.__init__(data_path)
         self.feature_value_dict = {} # {feat1: [values], feat2: [values]}
         self.feature_size_dict = {} # {feat1: size, feat2: size}
         self.feature_value2num_dict = {} # {feat1: {val1: 0, val2: 1, ...}, feat2: {val1: 0, ...}}
@@ -26,9 +37,6 @@ class MultiValueTabularDataset(Dataset):
             self.feature_value2num_dict[feat] = {val: i for i,val in enumerate(value_list)}
 
         self.clarify_data()
-
-    def __len__(self):
-        return len(self.attribute_data)
 
     def __getitem__(self, idx):
         transaction = self.attribute_data.iloc[idx]
@@ -52,53 +60,46 @@ class MultiValueTabularDataset(Dataset):
         #        self.attribute_data[feat][self.attribute_data[feat] == val] = self.feature_value2num_dict[feat][val]
         for feat in self.attribute_data:
             self.attribute_data.replace({feat: self.feature_value2num_dict[feat]}, inplace=True)
-        self.attribute_data.to_csv('2_loop.csv')
+        #self.attribute_data.to_csv('2_loop.csv')
 
 
-class BinaryTabularDataset(Dataset):
-    def __init__(self, data_path):
-        self.data = pd.read_csv(data_path)
-        cols = list(self.data.columns)
-        assert 'label' == cols[-1]
-        self.num_feat = len(cols) - 1
-        self.attribute_cols = cols[:-1]
-        self.attribute_data = self.data[self.attribute_cols]
-        self.label = self.data['label']
+class BinaryTabularDataset(BaseTabularDataset):
+    def __init__(self, data_path, device='cpu'):
+        BaseTabularDataset.__init__(self, data_path)
+        if device != 'cpu':
+            device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.attribute_data = torch.from_numpy(np.array(self.attribute_data)).float().to(device)
+        self.label = torch.from_numpy(np.array(self.label)).long().to(device)
 
     def get_model_info(self):
         return {'num_feat': self.num_feat}
 
-    def __len__(self):
-        return len(self.attribute_data)
-
     def __getitem__(self, idx):
-        transaction = torch.from_numpy(np.array(self.attribute_data.iloc[idx])).float()
-        label = torch.from_numpy(np.array(self.label.iloc[idx])).long()
+        transaction = self.attribute_data[idx]
+        label = self.label[idx]
         return transaction, label
 
 
-class BinaryTabularTripletDataset(Dataset):
-    def __init__(self, data_path):
-        self.data = pd.read_csv(data_path)
-        cols = list(self.data.columns)
-        assert 'label' == cols[-1]
-        self.num_feat = len(cols) - 1
-        self.attribute_cols = cols[:-1]
-        self.attribute_data = self.data[self.attribute_cols]
-        self.label = self.data['label']
+class BinaryTabularTripletDataset(BaseTabularDataset):
+    def __init__(self, data_path, device='cpu'):
+        BaseTabularDataset.__init__(self, data_path)
+        if device != 'cpu':
+            device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        
+        self.attribute_data = torch.from_numpy(np.array(self.attribute_data)).float().to(device)
+        self.label = torch.from_numpy(np.array(self.label)).long().to(device)
 
         self.pattern_idx = self.data.index[self.data['label'] == True].tolist()
         self.non_pattern_idx = self.data.index[self.data['label'] == False].tolist()
 
     def get_model_info(self):
-        return {'num_feat': self.num_feat}
-
-    def __len__(self):
-        return len(self.attribute_data)
+        return {'num_feat': self.num_feature}
 
     def __getitem__(self, idx):
-        anchor = torch.from_numpy(np.array(self.attribute_data.iloc[idx])).float()
-        label = torch.from_numpy(np.array(self.label.iloc[idx])).long()
+        #anchor = torch.from_numpy(np.array(self.attribute_data.iloc[idx])).float()
+        #label = torch.from_numpy(np.array(self.label.iloc[idx])).long()
+        anchor = self.attribute_data[idx]
+        label = self.label[idx]
 
         if label == 1:
             truthy_idx = np.random.choice(self.pattern_idx, 1)
@@ -111,8 +112,10 @@ class BinaryTabularTripletDataset(Dataset):
                 truthy_idx = np.random.choice(self.non_pattern_idx, 1)
             falsy_idx = np.random.choice(self.pattern_idx, 1)
 
-        truthy = torch.from_numpy(np.array(self.attribute_data.iloc[truthy_idx])).float().view(-1)
-        falsy = torch.from_numpy(np.array(self.attribute_data.iloc[falsy_idx])).float().view(-1)
+        #truthy = torch.from_numpy(np.array(self.attribute_data.iloc[truthy_idx])).float().view(-1)
+        #falsy = torch.from_numpy(np.array(self.attribute_data.iloc[falsy_idx])).float().view(-1)
+        truthy = self.attribute_data[truthy_idx]
+        falsy = self.attribute_data[falsy_idx]
 
         return anchor, truthy, falsy
 
@@ -125,13 +128,22 @@ def get_dataloader(args):
         if loss_type == 'classification':
             return BinaryTabularDataset(data_path=args.train_data)
         elif loss_type == 'contrastive':
-            return BinaryTabularTripletDataset(data_path=args.train_data)
+            return BinaryTabularTripletDataset(data_path=args.train_data, device=args.device)
     elif dataset_type == 'multivalue':
-        raise NotImplementedError()
+        raise NotImplementedError("Multivalue dataset is not implemented yet!")
 
 
 if __name__ == '__main__':
-    data_path = 'data/binary_100000.0trans_20cols_4pl_0.05noise.csv'
-    myDataset = BinaryTabularTripletDataset(data_path=data_path)
-    transaction, label = myDataset[1]
-    print('Done')
+    data_path = '/home/v-xiaoyuyang/diff_pattern_mining/data/binary_100000trans_30cols_8pl_0.05noise.csv'
+    device = torch.device('cuda:0')
+    myDataset = BinaryTabularTripletDataset(data_path=data_path, device=device)
+    from tqdm import tqdm
+    import time
+    start = time.time()
+    for i in tqdm(range(10000)):
+        anchor, truthy, falsy = myDataset[i]
+        #anchor.to(device)
+        #truthy.to(truthy)
+        #falsy.to(falsy)
+    end = time.time()
+    print(f'Done. Used {end-start} seconds')
