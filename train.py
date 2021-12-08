@@ -38,8 +38,8 @@ def train(trainer, dataset, writer, args):
                 print(f'Epoch: {ep}, step: {step}, loss: {loss}')
                 current_pattern = trainer.get_pattern().cpu().detach().numpy().reshape(-1)
                 output_json[f'Epoch: {ep}, step: {step}'] = np.array2string(current_pattern)
-                with open(args.output_dir + '/pattern.json', 'w') as f:
-                    json.dump(output_json, f)
+                #with open(args.output_dir + '/pattern.json', 'w') as f:
+                #    json.dump(output_json, f)
         loss_list.append(loss.cpu().detach().numpy())
         print(f'Epoch {ep}: loss = {np.array(loss_list).mean()}')
         writer.add_scalar('loss', loss, ep)

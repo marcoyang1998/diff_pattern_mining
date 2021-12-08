@@ -151,9 +151,9 @@ class PatternMininingContrastiveTrainer(nn.Module):
         #truthy = truthy.to(self.device)
         #falsy = falsy.to(self.device)
 
-        anchor = self.model(anchor.to(self.device))
-        truthy = self.model(truthy.to(self.device))
-        falsy = self.model(falsy.to(self.device))
+        anchor = self.model(anchor)
+        truthy = self.model(truthy)
+        falsy = self.model(falsy)
 
         return anchor, truthy, falsy
 

@@ -114,8 +114,8 @@ class BinaryTabularTripletDataset(BaseTabularDataset):
 
         #truthy = torch.from_numpy(np.array(self.attribute_data.iloc[truthy_idx])).float().view(-1)
         #falsy = torch.from_numpy(np.array(self.attribute_data.iloc[falsy_idx])).float().view(-1)
-        truthy = self.attribute_data[truthy_idx]
-        falsy = self.attribute_data[falsy_idx]
+        truthy = self.attribute_data[truthy_idx].squeeze()
+        falsy = self.attribute_data[falsy_idx].squeeze()
 
         return anchor, truthy, falsy
 
