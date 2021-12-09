@@ -87,17 +87,19 @@ class BinaryPatternEmbedding(nn.Module):
         self.encoder_activation = nn.ReLU()
 
         self.init_weight()
+        pass
 
     def forward(self, x):
-        x = self.encoder_activation(self.linear_encoder(x))
-
+        #x = self.encoder_activation(self.linear_encoder(x))
+        x = self.linear_encoder(x)
         return x
 
     def init_weight(self):
         def _init_weight(m):
             if isinstance(m, nn.Linear):
                 torch.nn.init.xavier_uniform_(m.weight)
-                m.bias.data.fill_(0.01)
+                #m.weight = m.weight[m.weight < 0] = 0
+                m.bias.data.fill_(0.0)
 
         self.linear_encoder.apply(_init_weight)
 

@@ -36,7 +36,9 @@ def train(trainer, dataset, writer, args):
             loss = trainer.update(*data)
             if step % 500 == 0:
                 print(f'Epoch: {ep}, step: {step}, loss: {loss}')
-                current_pattern = trainer.get_pattern().cpu().detach().numpy().reshape(-1)
+                current_pattern = trainer.get_pattern().cpu().detach().numpy()
+                for i in range(args.dim_hidden):
+                    print(current_pattern[i].reshape(-1))
                 output_json[f'Epoch: {ep}, step: {step}'] = np.array2string(current_pattern)
                 #with open(args.output_dir + '/pattern.json', 'w') as f:
                 #    json.dump(output_json, f)
