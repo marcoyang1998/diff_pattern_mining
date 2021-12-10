@@ -1,14 +1,14 @@
 import logging
-import os
 from argparse import ArgumentParser
-import json
+from utils import to_device
 
 import torch
 import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from model import PatterMiningClassifier, PatternMininingContrastiveTrainer, get_model
+from model import get_model
+from trainer import PatterMiningClassifier, PatternMiningContrastiveTrainer
 from dataloader import get_dataloader
 
 parser = ArgumentParser()
@@ -26,13 +26,13 @@ parser.add_argument('--debug_dir', type=str, default='log')
 
 def train(trainer, dataset, writer, args):
     epoch = args.epoch
-    pattern_list = []
     output_json = {}
     logging.info('Start training')
     for ep in range(epoch):
         loss_list = []
         print(f'Epoch: {ep}')
         for step, data in enumerate(dataset):
+            data = to_device(data, device=trainer.device)
             loss = trainer.update(*data)
             if step % 500 == 0:
                 print(f'Epoch: {ep}, step: {step}, loss: {loss}')
@@ -40,18 +40,12 @@ def train(trainer, dataset, writer, args):
                 for i in range(args.dim_hidden):
                     print(current_pattern[i].reshape(-1))
                 output_json[f'Epoch: {ep}, step: {step}'] = np.array2string(current_pattern)
-                #with open(args.output_dir + '/pattern.json', 'w') as f:
-                #    json.dump(output_json, f)
         loss_list.append(loss.cpu().detach().numpy())
         print(f'Epoch {ep}: loss = {np.array(loss_list).mean()}')
         writer.add_scalar('loss', loss, ep)
         current_pattern = trainer.get_pattern().cpu().detach().numpy().reshape(-1)
-        #output_json[f'Epoch: {ep}, step: {step}'] = np.array2string(current_pattern)
         print(f'Current pattern: {current_pattern}')
-        #pattern_list.append(current_pattern.cpu().detach().numpy())
-    #pattern_list = np.array(pattern_list)
     logging.info('Finish training')
-    #return pattern_list
 
 
 def main(args):
@@ -71,7 +65,7 @@ def main(args):
     training_generator = DataLoader(dataset, batch_size=args.batch_size)
     feat_size_list = dataset.get_model_info()
     model = get_model(args=args, **feat_size_list)
-    trainer = PatternMininingContrastiveTrainer(model=model, args=args, device=device)
+    trainer = PatternMiningContrastiveTrainer(model=model, args=args, device=device)
     writer = SummaryWriter(args.debug_dir)
     train(trainer, training_generator, writer, args)
     #print('Ground truth pattern: ', ground_truth)

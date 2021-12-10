@@ -1,10 +1,22 @@
 import torch
 import torch.nn as nn
-from torch import optim
-from losses import triplet_loss
+from abc import ABC, abstractmethod
 
 
-class MultiValuePatternClassifier(nn.Module):
+class BasePatternMiner(nn.Module, ABC):
+    def __init__(self):
+        super(BasePatternMiner, self).__init__()
+
+    @abstractmethod
+    def clamp_weight(self):
+        pass
+
+    @abstractmethod
+    def get_pattern(self):
+        pass
+
+
+class MultiValuePatternClassifier(nn.Module, BasePatternMiner):
     def __init__(self, feat_size_list, args):
         super(MultiValuePatternClassifier, self).__init__()
         self.feature_value_list = feat_size_list
@@ -44,12 +56,11 @@ class MultiValuePatternClassifier(nn.Module):
             feat_list.append(feature)
         x = torch.cat(feat_list, dim=-1)
         x = self.embedding_activation(self.embedding(x))
-        #x = torch.log_softmax(self.output_layer(x), dim=1)
         x = self.output_layer(x).squeeze(dim=-1)
         return x
 
 
-class BinaryPatternClassifier(nn.Module):
+class BinaryPatternClassifier(nn.Module, BasePatternMiner):
     def __init__(self, num_feat, args):
         super(BinaryPatternClassifier, self).__init__()
         self.num_feature = num_feat
@@ -87,18 +98,17 @@ class BinaryPatternEmbedding(nn.Module):
         self.encoder_activation = nn.ReLU()
 
         self.init_weight()
-        pass
 
     def forward(self, x):
-        #x = self.encoder_activation(self.linear_encoder(x))
-        x = self.linear_encoder(x)
+        x = self.encoder_activation(self.linear_encoder(x))
         return x
 
     def init_weight(self):
         def _init_weight(m):
             if isinstance(m, nn.Linear):
                 torch.nn.init.xavier_uniform_(m.weight)
-                #m.weight = m.weight[m.weight < 0] = 0
+                with torch.no_grad():
+                    m.weight[m.weight < 0] = 0
                 m.bias.data.fill_(0.0)
 
         self.linear_encoder.apply(_init_weight)
@@ -106,69 +116,10 @@ class BinaryPatternEmbedding(nn.Module):
     def get_pattern(self):
         return self.linear_encoder.weight
 
-
-class PatterMiningClassifier(nn.Module):
-    def __init__(self, model: nn.Module, args, device='cpu'):
-        super(PatterMiningClassifier, self).__init__()
-        self.model = model
-        self.epoch = 0
-        self.optim = optim.SGD(model.parameters(), lr=args.lr)
-        #self.loss = nn.CrossEntropyLoss()
-        self.loss = nn.BCEWithLogitsLoss()
-
-        self.device = device
-        self.model.to(device)
-
-    def forward(self, x):
-        x.to(self.device)
-        out = self.model(x).squeeze(dim=-1)
-        return out
-
-    def update(self, x, label):
-        label.to(self.device)
-        out = self.forward(x)
-        loss = self.loss(out, label.float())
-        self.optim.zero_grad()
-        loss.backward()
-        self.optim.step()
-
-        return loss
-
-    def get_pattern(self):
-        return self.model.get_pattern()
-
-
-class PatternMininingContrastiveTrainer(nn.Module):
-    def __init__(self, model:nn.Module, args, device='cpu'):
-        super(PatternMininingContrastiveTrainer, self).__init__()
-        self.model = model
-        self.optim = optim.SGD(model.parameters(), lr=args.lr)
-        self.loss = triplet_loss
-
-        self.device = device
-        self.model.to(device)
-
-    def forward(self, anchor, truthy, falsy):
-        #anchor = anchor.to(self.device)
-        #truthy = truthy.to(self.device)
-        #falsy = falsy.to(self.device)
-
-        anchor = self.model(anchor)
-        truthy = self.model(truthy)
-        falsy = self.model(falsy)
-
-        return anchor, truthy, falsy
-
-    def update(self, anchor, truthy, falsy):
-        loss = self.loss(*self.forward(anchor, truthy, falsy))
-        self.optim.zero_grad()
-        loss.backward()
-        self.optim.step()
-
-        return loss
-
-    def get_pattern(self):
-        return self.model.get_pattern()
+    def clamp_weight(self):
+        with torch.no_grad():
+            torch.clamp_(self.linear_encoder.weight, min=0.0, max=1.0)
+            torch.clamp_(self.linear_encoder.bias, max=0.0)
 
 
 def get_model(args, **kwargs):

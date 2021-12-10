@@ -64,30 +64,30 @@ class MultiValueTabularDataset(BaseTabularDataset):
 
 
 class BinaryTabularDataset(BaseTabularDataset):
-    def __init__(self, data_path, device='cpu'):
+    def __init__(self, data_path):
         BaseTabularDataset.__init__(self, data_path)
-        if device != 'cpu':
-            device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.attribute_data = torch.from_numpy(np.array(self.attribute_data)).float().to(device)
-        self.label = torch.from_numpy(np.array(self.label)).long().to(device)
+        #if device != 'cpu':
+        #    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.attribute_data = np.array(self.attribute_data)
+        self.label = np.array(self.label)
+        #self.attribute_data = torch.from_numpy(np.array(self.attribute_data)).float().to(device)
+        #self.label = torch.from_numpy(np.array(self.label)).long().to(device)
 
     def get_model_info(self):
         return {'num_feat': self.num_feat}
 
     def __getitem__(self, idx):
-        transaction = self.attribute_data[idx]
-        label = self.label[idx]
+        transaction = torch.from_numpy(self.attribute_data[idx]).long()
+        label = torch.from_numpy(self.label[idx]).long()
         return transaction, label
 
 
 class BinaryTabularTripletDataset(BaseTabularDataset):
-    def __init__(self, data_path, device='cpu'):
+    def __init__(self, data_path):
         BaseTabularDataset.__init__(self, data_path)
-        if device != 'cpu':
-            device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         
-        self.attribute_data = torch.from_numpy(np.array(self.attribute_data)).float().to(device)
-        self.label = torch.from_numpy(np.array(self.label)).long().to(device)
+        self.attribute_data = np.array(self.attribute_data)
+        self.label = np.array(self.label)
 
         self.pattern_idx = self.data.index[self.data['label'] == True].tolist()
         self.non_pattern_idx = self.data.index[self.data['label'] == False].tolist()
@@ -96,9 +96,7 @@ class BinaryTabularTripletDataset(BaseTabularDataset):
         return {'num_feat': self.num_feature}
 
     def __getitem__(self, idx):
-        #anchor = torch.from_numpy(np.array(self.attribute_data.iloc[idx])).float()
-        #label = torch.from_numpy(np.array(self.label.iloc[idx])).long()
-        anchor = self.attribute_data[idx]
+        anchor = torch.from_numpy(self.attribute_data[idx]).float().view(-1)
         label = self.label[idx]
 
         if label == 1:
@@ -112,10 +110,10 @@ class BinaryTabularTripletDataset(BaseTabularDataset):
                 truthy_idx = np.random.choice(self.non_pattern_idx, 1)
             falsy_idx = np.random.choice(self.pattern_idx, 1)
 
-        #truthy = torch.from_numpy(np.array(self.attribute_data.iloc[truthy_idx])).float().view(-1)
-        #falsy = torch.from_numpy(np.array(self.attribute_data.iloc[falsy_idx])).float().view(-1)
-        truthy = self.attribute_data[truthy_idx].squeeze()
-        falsy = self.attribute_data[falsy_idx].squeeze()
+        truthy = torch.from_numpy(self.attribute_data[truthy_idx]).float().view(-1)
+        falsy = torch.from_numpy(self.attribute_data[falsy_idx]).float().view(-1)
+        #truthy = self.attribute_data[truthy_idx].squeeze()
+        #falsy = self.attribute_data[falsy_idx].squeeze()
 
         return anchor, truthy, falsy
 
@@ -128,7 +126,7 @@ def get_dataloader(args):
         if loss_type == 'classification':
             return BinaryTabularDataset(data_path=args.train_data)
         elif loss_type == 'contrastive':
-            return BinaryTabularTripletDataset(data_path=args.train_data, device=args.device)
+            return BinaryTabularTripletDataset(data_path=args.train_data)
     elif dataset_type == 'multivalue':
         raise NotImplementedError("Multivalue dataset is not implemented yet!")
 
@@ -136,7 +134,7 @@ def get_dataloader(args):
 if __name__ == '__main__':
     data_path = '/home/v-xiaoyuyang/diff_pattern_mining/data/binary_100000trans_30cols_8pl_0.05noise.csv'
     device = torch.device('cuda:0')
-    myDataset = BinaryTabularTripletDataset(data_path=data_path, device=device)
+    myDataset = BinaryTabularTripletDataset(data_path=data_path)
     from tqdm import tqdm
     import time
     start = time.time()
