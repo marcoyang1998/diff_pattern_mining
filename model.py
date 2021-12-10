@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from utils import pattern_init_weight
 from abc import ABC, abstractmethod
 
 
@@ -40,13 +41,9 @@ class MultiValuePatternClassifier(nn.Module, BasePatternMiner):
         self.init_weight()
 
     def init_weight(self):
-        def _init_weight(m):
-            if isinstance(m, nn.Linear):
-                torch.nn.init.xavier_uniform(m.weight)
-                m.bias.data.fill_(0.01)
-        self.input_linears.apply(_init_weight)
-        self.embedding.apply(_init_weight)
-        self.output_layer.apply(_init_weight)
+        self.input_linears.apply(pattern_init_weight)
+        self.embedding.apply(pattern_init_weight)
+        self.output_layer.apply(pattern_init_weight)
 
     def forward(self, x):
         feat_list = []
@@ -68,7 +65,7 @@ class BinaryPatternClassifier(nn.Module, BasePatternMiner):
         self.linear_encoder = nn.Linear(num_feat, self.dim_hidden)
         self.encoder_activation = nn.ReLU()
 
-        self.classifier = nn.Linear(self.dim_hidden, 1)
+        self.classifier = nn.Linear(self.dim_hidden, 1, bias=False)
         self.init_weight()
 
     def forward(self, x):
@@ -81,12 +78,14 @@ class BinaryPatternClassifier(nn.Module, BasePatternMiner):
         return self.linear_encoder.weight, self.classifier.weight
 
     def init_weight(self):
-        def _init_weight(m):
-            if isinstance(m, nn.Linear):
-                torch.nn.init.xavier_uniform(m.weight)
-                m.bias.data.fill_(0.01)
-        self.linear_encoder.apply(_init_weight)
-        self.classifier.apply(_init_weight)
+        self.linear_encoder.apply(pattern_init_weight)
+        self.classifier.apply(pattern_init_weight)
+
+    def clamp_weight(self):
+        with torch.no_grad():
+            torch.clamp_(self.linear_encoder.weight, min=0.0, max=1.0)
+            torch.clamp_(self.classifier.weight, min=0.0, max=1.0)
+            torch.clamp_(self.linear_encoder.bias, max=0.0)
 
 
 class BinaryPatternEmbedding(nn.Module):
@@ -104,14 +103,7 @@ class BinaryPatternEmbedding(nn.Module):
         return x
 
     def init_weight(self):
-        def _init_weight(m):
-            if isinstance(m, nn.Linear):
-                torch.nn.init.xavier_uniform_(m.weight)
-                with torch.no_grad():
-                    m.weight[m.weight < 0] = 0
-                m.bias.data.fill_(0.0)
-
-        self.linear_encoder.apply(_init_weight)
+        self.linear_encoder.apply(pattern_init_weight)
 
     def get_pattern(self):
         return self.linear_encoder.weight
