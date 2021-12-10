@@ -17,7 +17,7 @@ class BasePatternMiner(nn.Module, ABC):
         pass
 
 
-class MultiValuePatternClassifier(nn.Module, BasePatternMiner):
+class MultiValuePatternClassifier(BasePatternMiner):
     def __init__(self, feat_size_list, args):
         super(MultiValuePatternClassifier, self).__init__()
         self.feature_value_list = feat_size_list
@@ -57,7 +57,7 @@ class MultiValuePatternClassifier(nn.Module, BasePatternMiner):
         return x
 
 
-class BinaryPatternClassifier(nn.Module, BasePatternMiner):
+class BinaryPatternClassifier(BasePatternMiner):
     def __init__(self, num_feat, args):
         super(BinaryPatternClassifier, self).__init__()
         self.num_feature = num_feat
@@ -70,7 +70,7 @@ class BinaryPatternClassifier(nn.Module, BasePatternMiner):
 
     def forward(self, x):
         x = self.encoder_activation(self.linear_encoder(x))
-        x = self.classifier(x)
+        x = self.classifier(x).unsqueeze(-1)
 
         return x
 
@@ -85,7 +85,7 @@ class BinaryPatternClassifier(nn.Module, BasePatternMiner):
         with torch.no_grad():
             torch.clamp_(self.linear_encoder.weight, min=0.0, max=1.0)
             torch.clamp_(self.classifier.weight, min=0.0, max=1.0)
-            torch.clamp_(self.linear_encoder.bias, max=0.0)
+            torch.clamp_(self.linear_encoder.bias, max=-1.0)
 
 
 class BinaryPatternEmbedding(nn.Module):

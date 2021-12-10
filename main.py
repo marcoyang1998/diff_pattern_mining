@@ -7,8 +7,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from model import get_model
-from trainer import PatterMiningClassifier, PatternMiningContrastiveTrainer
+from trainer import get_trainer
 from dataloader import get_dataloader
 
 parser = ArgumentParser()
@@ -17,12 +16,12 @@ parser.add_argument('--dim_hidden', type=int, default=32, help='Network hidden d
 parser.add_argument('--lr', type=float, default=1e-2)
 parser.add_argument('--epoch', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=32)
-parser.add_argument('--dataset_type', type=str, choices=['binary','multivalue'], default='binary')
+parser.add_argument('--dataset_type', type=str, choices=['binary', 'multivalue'], default='binary')
 parser.add_argument('--loss_type', type=str, choices=['classification','contrastive'], default='classification')
 parser.add_argument('--device', type=str, default='gpu', choices=['gpu','cpu'])
 parser.add_argument('--output_dir', type=str, default='output')
 parser.add_argument('--debug_dir', type=str, default='log')
-
+np.set_printoptions(suppress=True)
 
 def train(trainer, dataset, writer, args):
     epoch = args.epoch
@@ -34,17 +33,13 @@ def train(trainer, dataset, writer, args):
         for step, data in enumerate(dataset):
             data = to_device(data, device=trainer.device)
             loss = trainer.update(*data)
-            if step % 500 == 0:
+            if step % 500 ==0:
                 print(f'Epoch: {ep}, step: {step}, loss: {loss}')
-                current_pattern = trainer.get_pattern().cpu().detach().numpy()
-                for i in range(args.dim_hidden):
-                    print(current_pattern[i].reshape(-1))
-                output_json[f'Epoch: {ep}, step: {step}'] = np.array2string(current_pattern)
+
         loss_list.append(loss.cpu().detach().numpy())
-        print(f'Epoch {ep}: loss = {np.array(loss_list).mean()}')
+        if ep % 10 == 0:
+            trainer.print_pattern()
         writer.add_scalar('loss', loss, ep)
-        current_pattern = trainer.get_pattern().cpu().detach().numpy().reshape(-1)
-        print(f'Current pattern: {current_pattern}')
     logging.info('Finish training')
 
 
@@ -63,9 +58,8 @@ def main(args):
     ground_truth = list(map(int, ground_truth.split(' ')))
 
     training_generator = DataLoader(dataset, batch_size=args.batch_size)
-    feat_size_list = dataset.get_model_info()
-    model = get_model(args=args, **feat_size_list)
-    trainer = PatternMiningContrastiveTrainer(model=model, args=args, device=device)
+    model_info = dataset.get_model_info()
+    trainer = get_trainer(args=args, device=device, **model_info)
     writer = SummaryWriter(args.debug_dir)
     train(trainer, training_generator, writer, args)
     #print('Ground truth pattern: ', ground_truth)

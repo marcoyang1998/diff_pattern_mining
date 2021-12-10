@@ -55,29 +55,21 @@ class MultiValueTabularDataset(BaseTabularDataset):
         return {'feat_size_list': self.get_feature_size_list()}
 
     def clarify_data(self):
-        #for feat in self.attribute_cols:
-        #    for val in self.feature_value_dict[feat]:
-        #        self.attribute_data[feat][self.attribute_data[feat] == val] = self.feature_value2num_dict[feat][val]
         for feat in self.attribute_data:
             self.attribute_data.replace({feat: self.feature_value2num_dict[feat]}, inplace=True)
-        #self.attribute_data.to_csv('2_loop.csv')
 
 
 class BinaryTabularDataset(BaseTabularDataset):
     def __init__(self, data_path):
         BaseTabularDataset.__init__(self, data_path)
-        #if device != 'cpu':
-        #    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.attribute_data = np.array(self.attribute_data)
-        self.label = np.array(self.label)
-        #self.attribute_data = torch.from_numpy(np.array(self.attribute_data)).float().to(device)
-        #self.label = torch.from_numpy(np.array(self.label)).long().to(device)
+        self.label = np.array(self.label).reshape(-1,1)
 
     def get_model_info(self):
-        return {'num_feat': self.num_feat}
+        return {'num_feat': self.num_feature}
 
     def __getitem__(self, idx):
-        transaction = torch.from_numpy(self.attribute_data[idx]).long()
+        transaction = torch.from_numpy(self.attribute_data[idx]).float()
         label = torch.from_numpy(self.label[idx]).long()
         return transaction, label
 
